@@ -4,12 +4,12 @@ A universal file converter built with Next.js 15, TypeScript, and React. Convert
 
 ## Features
 
-- **Multi-Format Support**: Convert between various file formats
-  - Images (17 formats): JPG, JPEG, PNG, WebP, GIF, BMP, SVG, AVIF, ICO, TIFF, TIF, HEIC, HEIF, EPS, PSD, DDS, TGA
-  - Audio (13 formats): MP3, WAV, OGG, M4A, FLAC, AAC, AIFF, AIF, WMA, OPUS, AMR, WavPack, ALAC
-  - Video (14 formats): MP4, WebM, MKV, AVI, MOV, FLV, WMV, MPEG, MPG, M4V, VOB, TS, 3GP, OGV
-  - Documents (6 formats): TXT, HTML, XML, JSON, YAML, CSV
-  - Archives (9 formats): ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ, TGZ, Zstandard
+- **Multi-Format Support**: Convert between 80+ file formats!
+  - **Images (22 formats)**: JPG, JPEG, PNG, WebP, GIF, BMP, SVG, AVIF, ICO, TIFF, TIF, HEIC, HEIF, EPS, PSD, DDS, TGA, RAW, CR2, NEF, ARW, DNG
+  - **Audio (15 formats)**: MP3, WAV, OGG, M4A, FLAC, AAC, AIFF, AIF, WMA, OPUS, AMR, WavPack, ALAC, APE, Musepack
+  - **Video (17 formats)**: MP4, WebM, MKV, AVI, MOV, FLV, WMV, MPEG, MPG, M4V, VOB, TS, 3GP, OGV, F4V, SWF, MTS
+  - **Documents (21 formats)**: PDF, DOCX, DOC, ODT, RTF, TXT, EPUB, MOBI, AZW, AZW3, HTML, XML, JSON, YAML, CSV, XLSX, XLS, PPTX, PPT, ODP, ODS
+  - **Archives (9 formats)**: ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ, TGZ, Zstandard
 
 - **User-Friendly Interface**
   - Clean, modern design

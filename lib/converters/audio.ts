@@ -54,6 +54,12 @@ export async function convertAudio(
         case 'alac':
           command = command.audioCodec('alac')
           break
+        case 'ape':
+          command = command.audioCodec('ape')
+          break
+        case 'mpc':
+          command = command.audioCodec('musepack')
+          break
         default:
           throw new Error(`Unsupported audio format: ${targetFormat}`)
       }
