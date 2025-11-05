@@ -33,6 +33,25 @@ export async function convertAudio(
         case 'aac':
           command = command.audioCodec('aac').audioBitrate('192k')
           break
+        case 'aiff':
+        case 'aif':
+          command = command.audioCodec('pcm_s16be')
+          break
+        case 'wma':
+          command = command.audioCodec('wmav2').audioBitrate('192k')
+          break
+        case 'opus':
+          command = command.audioCodec('libopus').audioBitrate('128k')
+          break
+        case 'amr':
+          command = command.audioCodec('libopencore_amrnb').audioBitrate('12.2k').audioChannels(1).audioFrequency(8000)
+          break
+        case 'wv':
+          command = command.audioCodec('wavpack')
+          break
+        case 'alac':
+          command = command.audioCodec('alac')
+          break
         default:
           throw new Error(`Unsupported audio format: ${targetFormat}`)
       }

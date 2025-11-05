@@ -45,6 +45,50 @@ export async function convertVideo(
             .audioCodec('aac')
             .outputOptions(['-preset', 'medium', '-crf', '23'])
           break
+        case 'flv':
+          command = command
+            .videoCodec('flv')
+            .audioCodec('libmp3lame')
+          break
+        case 'wmv':
+          command = command
+            .videoCodec('wmv2')
+            .audioCodec('wmav2')
+          break
+        case 'mpeg':
+        case 'mpg':
+          command = command
+            .videoCodec('mpeg2video')
+            .audioCodec('mp2')
+          break
+        case 'm4v':
+          command = command
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions(['-preset', 'medium', '-crf', '23'])
+          break
+        case 'vob':
+          command = command
+            .videoCodec('mpeg2video')
+            .audioCodec('mp2')
+          break
+        case 'ts':
+          command = command
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions(['-f', 'mpegts'])
+          break
+        case '3gp':
+          command = command
+            .videoCodec('h263')
+            .audioCodec('aac')
+            .outputOptions(['-s', '176x144'])
+          break
+        case 'ogv':
+          command = command
+            .videoCodec('libtheora')
+            .audioCodec('libvorbis')
+          break
         default:
           throw new Error(`Unsupported video format: ${targetFormat}`)
       }
