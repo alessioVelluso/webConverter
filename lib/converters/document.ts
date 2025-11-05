@@ -110,28 +110,39 @@ async function convertToPdf(inputPath: string, outputPath: string, sourceFormat:
 
 // Convert FROM DOCX
 async function convertFromDocx(inputPath: string, outputPath: string, targetFormat: DocumentFormat): Promise<void> {
-  const mammoth = await import('mammoth')
-  const buffer = await fs.readFile(inputPath)
+  try {
+    const mammoth = await import('mammoth')
+    const buffer = await fs.readFile(inputPath)
 
-  if (targetFormat === 'html') {
-    const result = await mammoth.convertToHtml({ buffer })
-    await fs.writeFile(outputPath, result.value, 'utf-8')
-  } else if (targetFormat === 'txt') {
-    const result = await mammoth.extractRawText({ buffer })
-    await fs.writeFile(outputPath, result.value, 'utf-8')
-  } else if (targetFormat === 'pdf') {
-    const result = await mammoth.extractRawText({ buffer })
-    await createPdfFromText(result.value, outputPath)
-  } else if (targetFormat === 'json') {
-    const result = await mammoth.extractRawText({ buffer })
-    await fs.writeFile(outputPath, JSON.stringify({ content: result.value }, null, 2), 'utf-8')
-  } else if (targetFormat === 'xml') {
-    const result = await mammoth.extractRawText({ buffer })
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<document>\n<content>${escapeXml(result.value)}</content>\n</document>`
-    await fs.writeFile(outputPath, xml, 'utf-8')
-  } else {
-    const result = await mammoth.extractRawText({ buffer })
-    await fs.writeFile(outputPath, result.value, 'utf-8')
+    if (targetFormat === 'html') {
+      const result = await mammoth.convertToHtml({ buffer })
+      const html = result.value || '<html><body><p>No content extracted</p></body></html>'
+      await fs.writeFile(outputPath, html, 'utf-8')
+    } else if (targetFormat === 'txt') {
+      const result = await mammoth.extractRawText({ buffer })
+      await fs.writeFile(outputPath, result.value || '', 'utf-8')
+    } else if (targetFormat === 'pdf') {
+      const result = await mammoth.extractRawText({ buffer })
+      await createPdfFromText(result.value || 'Empty document', outputPath)
+    } else if (targetFormat === 'json') {
+      const result = await mammoth.extractRawText({ buffer })
+      await fs.writeFile(outputPath, JSON.stringify({ content: result.value || '' }, null, 2), 'utf-8')
+    } else if (targetFormat === 'xml') {
+      const result = await mammoth.extractRawText({ buffer })
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<document>\n<content>${escapeXml(result.value || '')}</content>\n</document>`
+      await fs.writeFile(outputPath, xml, 'utf-8')
+    } else if (targetFormat === 'odt') {
+      const result = await mammoth.extractRawText({ buffer })
+      await convertToOdt(inputPath, outputPath, 'txt', 'odt')
+    } else if (targetFormat === 'rtf') {
+      const result = await mammoth.extractRawText({ buffer })
+      await convertToOdt(inputPath, outputPath, 'txt', 'rtf')
+    } else {
+      const result = await mammoth.extractRawText({ buffer })
+      await fs.writeFile(outputPath, result.value || '', 'utf-8')
+    }
+  } catch (error) {
+    throw new Error(`Failed to convert DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -450,15 +461,17 @@ async function createPdfFromText(text: string, outputPath: string): Promise<void
   const pdfDoc = await PDFDocument.create()
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
+  // Clean text: remove characters that WinAnsi encoding cannot handle
+  const cleanText = sanitizeTextForPdf(text)
+
   const fontSize = 12
   const lineHeight = fontSize * 1.2
   const margin = 50
   const pageWidth = 595.28 // A4 width in points
   const pageHeight = 841.89 // A4 height in points
   const maxWidth = pageWidth - 2 * margin
-  const maxHeight = pageHeight - 2 * margin
 
-  const lines = text.split('\n')
+  const lines = cleanText.split('\n')
   let page = pdfDoc.addPage([pageWidth, pageHeight])
   let yPosition = pageHeight - margin
 
@@ -473,13 +486,18 @@ async function createPdfFromText(text: string, outputPath: string): Promise<void
 
       if (width > maxWidth && currentLine) {
         // Draw current line and start new one
-        page.drawText(currentLine, {
-          x: margin,
-          y: yPosition,
-          size: fontSize,
-          font: font,
-          color: rgb(0, 0, 0)
-        })
+        try {
+          page.drawText(currentLine, {
+            x: margin,
+            y: yPosition,
+            size: fontSize,
+            font: font,
+            color: rgb(0, 0, 0)
+          })
+        } catch (e) {
+          // If still fails, skip this line
+          console.error('Failed to draw text:', e)
+        }
         yPosition -= lineHeight
         currentLine = word
 
@@ -495,13 +513,18 @@ async function createPdfFromText(text: string, outputPath: string): Promise<void
 
     // Draw remaining text
     if (currentLine) {
-      page.drawText(currentLine, {
-        x: margin,
-        y: yPosition,
-        size: fontSize,
-        font: font,
-        color: rgb(0, 0, 0)
-      })
+      try {
+        page.drawText(currentLine, {
+          x: margin,
+          y: yPosition,
+          size: fontSize,
+          font: font,
+          color: rgb(0, 0, 0)
+        })
+      } catch (e) {
+        // If still fails, skip this line
+        console.error('Failed to draw text:', e)
+      }
       yPosition -= lineHeight
     }
 
@@ -514,6 +537,37 @@ async function createPdfFromText(text: string, outputPath: string): Promise<void
 
   const pdfBytes = await pdfDoc.save()
   await fs.writeFile(outputPath, pdfBytes)
+}
+
+// Sanitize text for PDF (remove characters that WinAnsi cannot encode)
+function sanitizeTextForPdf(text: string): string {
+  // Remove control characters except newline, tab, and carriage return
+  let clean = text.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+
+  // Replace common problematic Unicode characters with ASCII equivalents
+  const replacements: { [key: string]: string } = {
+    '\u2013': '-',  // en dash
+    '\u2014': '--', // em dash
+    '\u2018': "'",  // left single quote
+    '\u2019': "'",  // right single quote
+    '\u201C': '"',  // left double quote
+    '\u201D': '"',  // right double quote
+    '\u2026': '...', // ellipsis
+    '\u00A0': ' ',  // non-breaking space
+    '\u2022': '*',  // bullet
+    '\u00B0': ' degrees', // degree symbol
+    '\u00AB': '<<', // left guillemet
+    '\u00BB': '>>', // right guillemet
+  }
+
+  for (const [unicode, ascii] of Object.entries(replacements)) {
+    clean = clean.replace(new RegExp(unicode, 'g'), ascii)
+  }
+
+  // Remove any remaining characters outside WinAnsi range (keep only printable ASCII + extended Latin)
+  clean = clean.replace(/[^\x20-\x7E\xA0-\xFF\n\r\t]/g, '')
+
+  return clean
 }
 
 // Helper: Create DOCX from text

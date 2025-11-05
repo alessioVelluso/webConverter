@@ -15,6 +15,9 @@ export async function convertVideo(
   return new Promise((resolve, reject) => {
     try {
       let command = ffmpeg(inputPath)
+        .on('start', (commandLine) => {
+          console.log('FFmpeg video command:', commandLine)
+        })
 
       // Set output format and codec options based on target format
       switch (targetFormat) {
@@ -117,9 +120,19 @@ export async function convertVideo(
           if (onProgress && progress.percent) {
             onProgress(progress.percent)
           }
+          if (progress.percent) {
+            console.log(`Video processing: ${Math.round(progress.percent)}%`)
+          }
         })
-        .on('end', () => resolve())
-        .on('error', (err) => reject(new Error(`Video conversion failed: ${err.message}`)))
+        .on('end', () => {
+          console.log('Video conversion completed successfully')
+          resolve()
+        })
+        .on('error', (err, stdout, stderr) => {
+          console.error('FFmpeg video error:', err.message)
+          console.error('FFmpeg stderr:', stderr)
+          reject(new Error(`Video conversion failed: ${err.message}. Check if the format and codecs are supported by your FFmpeg installation.`))
+        })
         .run()
     } catch (error) {
       reject(new Error(`Video conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`))
