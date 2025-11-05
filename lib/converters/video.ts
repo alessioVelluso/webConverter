@@ -91,6 +91,22 @@ export async function convertVideo(
             .videoCodec('libtheora')
             .audioCodec('libvorbis')
           break
+        case 'f4v':
+          command = command
+            .videoCodec('libx264')
+            .audioCodec('aac')
+          break
+        case 'swf':
+          command = command
+            .videoCodec('flv')
+            .audioCodec('libmp3lame')
+          break
+        case 'mts':
+          command = command
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .outputOptions(['-f', 'mpegts'])
+          break
         default:
           throw new Error(`Unsupported video format: ${targetFormat}`)
       }

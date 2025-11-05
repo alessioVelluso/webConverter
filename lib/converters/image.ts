@@ -52,6 +52,14 @@ export async function convertImage(
         // PSD and EPS are complex formats, convert to high-quality PNG
         await sharpInstance.png({ quality: 100, compressionLevel: 0 }).toFile(outputPath)
         break
+      case 'raw':
+      case 'cr2':
+      case 'nef':
+      case 'arw':
+      case 'dng':
+        // RAW formats - Sharp has limited support, convert to high-quality format
+        await sharpInstance.tiff({ quality: 100 }).toFile(outputPath)
+        break
       default:
         throw new Error(`Unsupported image format: ${targetFormat}`)
     }

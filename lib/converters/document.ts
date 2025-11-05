@@ -59,6 +59,11 @@ export async function convertDocument(
     else if (sourceFormat === 'txt' && targetFormat === 'html') {
       const htmlContent = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${content}</pre>\n</body>\n</html>`
       await fs.writeFile(outputPath, htmlContent, 'utf-8')
+    }
+    // Complex document formats that need additional libraries
+    else if (['pdf', 'docx', 'doc', 'odt', 'rtf', 'epub', 'mobi', 'azw', 'azw3', 'xlsx', 'xls', 'pptx', 'ppt', 'odp', 'ods'].includes(sourceFormat) ||
+              ['pdf', 'docx', 'doc', 'odt', 'rtf', 'epub', 'mobi', 'azw', 'azw3', 'xlsx', 'xls', 'pptx', 'ppt', 'odp', 'ods'].includes(targetFormat)) {
+      throw new Error(`Conversion from ${sourceFormat} to ${targetFormat} requires additional libraries not yet installed. Currently supported conversions: JSON ↔ YAML ↔ XML ↔ CSV, HTML ↔ TXT. For PDF, DOCX, XLSX and other complex formats, please use dedicated tools like LibreOffice, Calibre, or Pandoc.`)
     } else {
       throw new Error(`Document conversion from ${sourceFormat} to ${targetFormat} is not supported`)
     }
