@@ -5,11 +5,11 @@ A universal file converter built with Next.js 15, TypeScript, and React. Convert
 ## Features
 
 - **Multi-Format Support**: Convert between various file formats
-  - Images: JPG, PNG, WebP, GIF, BMP, SVG, AVIF
-  - Audio: MP3, WAV, OGG, M4A, FLAC, AAC
-  - Video: MP4, WebM, MKV, AVI, MOV
-  - Documents: PDF, DOCX, TXT, MD
-  - Archives: ZIP, TAR, GZ
+  - Images (17 formats): JPG, JPEG, PNG, WebP, GIF, BMP, SVG, AVIF, ICO, TIFF, TIF, HEIC, HEIF, EPS, PSD, DDS, TGA
+  - Audio (13 formats): MP3, WAV, OGG, M4A, FLAC, AAC, AIFF, AIF, WMA, OPUS, AMR, WavPack, ALAC
+  - Video (14 formats): MP4, WebM, MKV, AVI, MOV, FLV, WMV, MPEG, MPG, M4V, VOB, TS, 3GP, OGV
+  - Documents (6 formats): TXT, HTML, XML, JSON, YAML, CSV
+  - Archives (9 formats): ZIP, RAR, 7Z, TAR, GZ, BZ2, XZ, TGZ, Zstandard
 
 - **User-Friendly Interface**
   - Clean, modern design
@@ -69,11 +69,11 @@ npm run dev
 
 ## File Size Limits
 
-- Images: 10 MB
+- Images: 100 MB (varies by format)
 - Audio: 100 MB
-- Video: 200 MB
-- Documents: 20 MB
-- Archives: 100 MB
+- Video: 1 GB
+- Documents: 50 MB
+- Archives: 1 GB
 
 ## API Routes
 

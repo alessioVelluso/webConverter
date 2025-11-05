@@ -1,8 +1,4 @@
-import ffmpeg from 'fluent-ffmpeg'
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import { VideoFormat } from '@/types/formats'
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path)
 
 export async function convertVideo(
   inputPath: string,
@@ -10,6 +6,12 @@ export async function convertVideo(
   targetFormat: VideoFormat,
   onProgress?: (percent: number) => void
 ): Promise<void> {
+  // Lazy load FFmpeg only when needed
+  const ffmpeg = (await import('fluent-ffmpeg')).default
+  const ffmpegInstaller = (await import('@ffmpeg-installer/ffmpeg')).default
+
+  ffmpeg.setFfmpegPath(ffmpegInstaller.path)
+
   return new Promise((resolve, reject) => {
     try {
       let command = ffmpeg(inputPath)

@@ -38,7 +38,7 @@ export async function convertDocument(
       await fs.writeFile(outputPath, content, 'utf-8')
     }
     // XML conversions
-    else if (sourceFormat === 'xml' && (targetFormat === 'json' || targetFormat === 'yaml' || targetFormat === 'txt' || targetFormat === 'html')) {
+    else if (sourceFormat === 'xml' && (targetFormat === 'json' || targetFormat === 'yaml' || targetFormat === 'txt')) {
       // Basic XML conversion - just save as text for now
       await fs.writeFile(outputPath, content, 'utf-8')
     }
@@ -46,30 +46,21 @@ export async function convertDocument(
     else if (sourceFormat === 'csv' && targetFormat === 'json') {
       const jsonData = convertCsvToJson(content)
       await fs.writeFile(outputPath, JSON.stringify(jsonData, null, 2), 'utf-8')
-    } else if (sourceFormat === 'csv' && (targetFormat === 'txt' || targetFormat === 'html')) {
+    } else if (sourceFormat === 'csv' && targetFormat === 'txt') {
       await fs.writeFile(outputPath, content, 'utf-8')
     }
     // HTML conversions
-    else if (sourceFormat === 'html' && (targetFormat === 'txt' || targetFormat === 'pdf' || targetFormat === 'docx' || targetFormat === 'odt')) {
+    else if (sourceFormat === 'html' && targetFormat === 'txt') {
       // Strip HTML tags for text
       const plainText = content.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
       await fs.writeFile(outputPath, plainText, 'utf-8')
     }
     // TXT conversions
-    else if (sourceFormat === 'txt' && (targetFormat === 'html' || targetFormat === 'pdf' || targetFormat === 'docx' || targetFormat === 'odt' || targetFormat === 'rtf')) {
-      // Wrap text in basic HTML or save as-is
-      if (targetFormat === 'html') {
-        const htmlContent = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${content}</pre>\n</body>\n</html>`
-        await fs.writeFile(outputPath, htmlContent, 'utf-8')
-      } else {
-        await fs.writeFile(outputPath, content, 'utf-8')
-      }
-    }
-    // Complex document formats (PDF, DOCX, ODT, RTF, DOC, EPUB)
-    else if (['pdf', 'docx', 'odt', 'rtf', 'doc', 'epub'].includes(sourceFormat) || ['pdf', 'docx', 'odt', 'rtf', 'doc', 'epub'].includes(targetFormat)) {
-      throw new Error(`Document conversion from ${sourceFormat} to ${targetFormat} requires additional libraries. Currently supported: JSON, YAML, XML, CSV, TXT, HTML conversions.`)
+    else if (sourceFormat === 'txt' && targetFormat === 'html') {
+      const htmlContent = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${content}</pre>\n</body>\n</html>`
+      await fs.writeFile(outputPath, htmlContent, 'utf-8')
     } else {
-      throw new Error(`Document conversion from ${sourceFormat} to ${targetFormat} is not yet supported`)
+      throw new Error(`Document conversion from ${sourceFormat} to ${targetFormat} is not supported`)
     }
   } catch (error) {
     throw new Error(`Document conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
