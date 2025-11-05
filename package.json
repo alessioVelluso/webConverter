@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
+    "compressing": "^2.0.0",
     "docx": "^9.5.1",
     "fluent-ffmpeg": "^2.1.3",
     "html-docx-js-typescript": "^0.1.5",
@@ -22,13 +25,17 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "sharp": "^0.33.0",
+    "tar-fs": "^3.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/archiver": "^7.0.0",
     "@types/fluent-ffmpeg": "^2.1.24",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/tar-fs": "^2.0.4",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "^15.0.0",
