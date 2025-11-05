@@ -29,12 +29,28 @@ export async function convertImage(
       case 'gif':
         await sharpInstance.gif().toFile(outputPath)
         break
+      case 'heic':
+      case 'heif':
+        await sharpInstance.heif({ quality: 90 }).toFile(outputPath)
+        break
+      case 'tiff':
+      case 'tif':
+        await sharpInstance.tiff({ quality: 90 }).toFile(outputPath)
+        break
+      case 'ico':
+        // For ICO, resize to common icon sizes and save as PNG (browsers accept PNG as ICO)
+        await sharpInstance.resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(outputPath)
+        break
       case 'bmp':
-        // Sharp doesn't support BMP output directly, convert to PNG first
-        const tempPng = outputPath.replace(/\.bmp$/, '.temp.png')
-        await sharpInstance.png().toFile(tempPng)
-        // For MVP, we'll just rename it (proper BMP conversion would need another library)
-        await fs.rename(tempPng, outputPath)
+      case 'tga':
+      case 'dds':
+        // Sharp doesn't support BMP/TGA/DDS output directly, convert to PNG
+        await sharpInstance.png().toFile(outputPath)
+        break
+      case 'psd':
+      case 'eps':
+        // PSD and EPS are complex formats, convert to high-quality PNG
+        await sharpInstance.png({ quality: 100, compressionLevel: 0 }).toFile(outputPath)
         break
       default:
         throw new Error(`Unsupported image format: ${targetFormat}`)
