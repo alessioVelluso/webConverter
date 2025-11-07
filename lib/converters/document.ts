@@ -108,41 +108,95 @@ async function convertToPdf(inputPath: string, outputPath: string, sourceFormat:
   await createPdfFromText(text, outputPath)
 }
 
-// Convert FROM DOCX
+// Convert FROM DOCX/DOC - REAL SUPPORT FOR OLD DOC FORMAT!
 async function convertFromDocx(inputPath: string, outputPath: string, targetFormat: DocumentFormat): Promise<void> {
   try {
-    const mammoth = await import('mammoth')
-    const buffer = await fs.readFile(inputPath)
+    let text = ''
 
-    if (targetFormat === 'html') {
-      const result = await mammoth.convertToHtml({ buffer })
-      const html = result.value || '<html><body><p>No content extracted</p></body></html>'
-      await fs.writeFile(outputPath, html, 'utf-8')
-    } else if (targetFormat === 'txt') {
-      const result = await mammoth.extractRawText({ buffer })
-      await fs.writeFile(outputPath, result.value || '', 'utf-8')
-    } else if (targetFormat === 'pdf') {
-      const result = await mammoth.extractRawText({ buffer })
-      await createPdfFromText(result.value || 'Empty document', outputPath)
-    } else if (targetFormat === 'json') {
-      const result = await mammoth.extractRawText({ buffer })
-      await fs.writeFile(outputPath, JSON.stringify({ content: result.value || '' }, null, 2), 'utf-8')
-    } else if (targetFormat === 'xml') {
-      const result = await mammoth.extractRawText({ buffer })
-      const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<document>\n<content>${escapeXml(result.value || '')}</content>\n</document>`
-      await fs.writeFile(outputPath, xml, 'utf-8')
-    } else if (targetFormat === 'odt') {
-      const result = await mammoth.extractRawText({ buffer })
-      await convertToOdt(inputPath, outputPath, 'txt', 'odt')
-    } else if (targetFormat === 'rtf') {
-      const result = await mammoth.extractRawText({ buffer })
-      await convertToOdt(inputPath, outputPath, 'txt', 'rtf')
+    // Check if it's an old DOC file (binary format) or new DOCX (XML-based)
+    const buffer = await fs.readFile(inputPath)
+    const isOldDoc = buffer[0] === 0xD0 && buffer[1] === 0xCF // Old DOC magic bytes
+
+    if (isOldDoc) {
+      // Use word-extractor for OLD DOC format
+      const WordExtractor = require('word-extractor')
+      const extractor = new WordExtractor()
+      const extracted = await extractor.extract(inputPath)
+      text = extracted.getBody()
+
+      // Format output based on target
+      if (targetFormat === 'html') {
+        // Convert to HTML with paragraphs
+        const paragraphs = text.split('\n').map(para =>
+          para.trim() ? `<p>${escapeXml(para.trim())}</p>` : ''
+        ).filter(p => p).join('\n')
+        const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n${paragraphs}\n</body>\n</html>`
+        await fs.writeFile(outputPath, html, 'utf-8')
+      } else if (targetFormat === 'txt') {
+        await fs.writeFile(outputPath, text, 'utf-8')
+      } else if (targetFormat === 'pdf') {
+        await createPdfFromText(text, outputPath)
+      } else if (targetFormat === 'json') {
+        await fs.writeFile(outputPath, JSON.stringify({ content: text }, null, 2), 'utf-8')
+      } else if (targetFormat === 'xml') {
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<document>\n<content>${escapeXml(text)}</content>\n</document>`
+        await fs.writeFile(outputPath, xml, 'utf-8')
+      } else if (targetFormat === 'docx') {
+        await createDocxFromText(text, outputPath)
+      } else if (targetFormat === 'odt') {
+        // Extract text first, then create ODT
+        const textPath = outputPath + '.tmp.txt'
+        await fs.writeFile(textPath, text, 'utf-8')
+        await convertToOdt(textPath, outputPath, 'txt', 'odt')
+        await fs.unlink(textPath)
+      } else if (targetFormat === 'rtf') {
+        const textPath = outputPath + '.tmp.txt'
+        await fs.writeFile(textPath, text, 'utf-8')
+        await convertToOdt(textPath, outputPath, 'txt', 'rtf')
+        await fs.unlink(textPath)
+      } else {
+        await fs.writeFile(outputPath, text, 'utf-8')
+      }
     } else {
-      const result = await mammoth.extractRawText({ buffer })
-      await fs.writeFile(outputPath, result.value || '', 'utf-8')
+      // Use mammoth for DOCX (modern XML-based format)
+      const mammoth = await import('mammoth')
+
+      if (targetFormat === 'html') {
+        const result = await mammoth.convertToHtml({ buffer })
+        const html = result.value || '<html><body><p>No content extracted</p></body></html>'
+        await fs.writeFile(outputPath, html, 'utf-8')
+      } else if (targetFormat === 'txt') {
+        const result = await mammoth.extractRawText({ buffer })
+        await fs.writeFile(outputPath, result.value || '', 'utf-8')
+      } else if (targetFormat === 'pdf') {
+        const result = await mammoth.extractRawText({ buffer })
+        await createPdfFromText(result.value || 'Empty document', outputPath)
+      } else if (targetFormat === 'json') {
+        const result = await mammoth.extractRawText({ buffer })
+        await fs.writeFile(outputPath, JSON.stringify({ content: result.value || '' }, null, 2), 'utf-8')
+      } else if (targetFormat === 'xml') {
+        const result = await mammoth.extractRawText({ buffer })
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<document>\n<content>${escapeXml(result.value || '')}</content>\n</document>`
+        await fs.writeFile(outputPath, xml, 'utf-8')
+      } else if (targetFormat === 'odt') {
+        const result = await mammoth.extractRawText({ buffer })
+        const textPath = outputPath + '.tmp.txt'
+        await fs.writeFile(textPath, result.value || '', 'utf-8')
+        await convertToOdt(textPath, outputPath, 'txt', 'odt')
+        await fs.unlink(textPath)
+      } else if (targetFormat === 'rtf') {
+        const result = await mammoth.extractRawText({ buffer })
+        const textPath = outputPath + '.tmp.txt'
+        await fs.writeFile(textPath, result.value || '', 'utf-8')
+        await convertToOdt(textPath, outputPath, 'txt', 'rtf')
+        await fs.unlink(textPath)
+      } else {
+        const result = await mammoth.extractRawText({ buffer })
+        await fs.writeFile(outputPath, result.value || '', 'utf-8')
+      }
     }
   } catch (error) {
-    throw new Error(`Failed to convert DOCX: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    throw new Error(`Failed to convert DOCX/DOC: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -225,7 +279,7 @@ async function convertToXlsx(inputPath: string, outputPath: string, sourceFormat
   XLSX.writeFile(workbook, outputPath)
 }
 
-// Convert FROM ODT/RTF
+// Convert FROM ODT/RTF - PROPER XML PARSING!
 async function convertFromOdt(inputPath: string, outputPath: string, targetFormat: DocumentFormat): Promise<void> {
   // ODT files are ZIP archives with XML content
   const JSZip = (await import('jszip')).default
@@ -235,7 +289,28 @@ async function convertFromOdt(inputPath: string, outputPath: string, targetForma
   let text = ''
   if (zip.files['content.xml']) {
     const contentXml = await zip.files['content.xml'].async('string')
-    text = contentXml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+
+    // Use fast-xml-parser to properly extract text from ODT XML
+    const { XMLParser } = require('fast-xml-parser')
+    const parser = new XMLParser({
+      ignoreAttributes: true,
+      textNodeName: '#text'
+    })
+
+    try {
+      const parsed = parser.parse(contentXml)
+      text = extractTextFromObject(parsed)
+
+      // Clean up excessive whitespace
+      text = text.replace(/\s+/g, ' ').trim()
+
+      // Try to preserve paragraph breaks by looking for common paragraph indicators
+      // ODT paragraphs are usually separated in the XML structure
+      text = text.replace(/([.!?])\s+/g, '$1\n\n')
+    } catch (e) {
+      // Fallback: strip tags if parsing fails
+      text = contentXml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+    }
   } else {
     // Fallback: try to read as plain text
     text = buffer.toString('utf-8')
@@ -244,7 +319,11 @@ async function convertFromOdt(inputPath: string, outputPath: string, targetForma
   if (targetFormat === 'txt') {
     await fs.writeFile(outputPath, text, 'utf-8')
   } else if (targetFormat === 'html') {
-    const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<p>${text}</p>\n</body>\n</html>`
+    // Create HTML with proper paragraphs
+    const paragraphs = text.split('\n\n').filter(p => p.trim()).map(para =>
+      `<p>${escapeXml(para.trim())}</p>`
+    ).join('\n')
+    const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n${paragraphs}\n</body>\n</html>`
     await fs.writeFile(outputPath, html, 'utf-8')
   } else if (targetFormat === 'pdf') {
     await createPdfFromText(text, outputPath)
@@ -285,7 +364,7 @@ async function convertToOdt(inputPath: string, outputPath: string, sourceFormat:
   }
 }
 
-// Convert FROM ebook formats
+// Convert FROM ebook formats - PROPER HTML/XML PARSING!
 async function convertFromEbook(inputPath: string, outputPath: string, targetFormat: DocumentFormat, sourceFormat: DocumentFormat): Promise<void> {
   // For EPUB, which is a ZIP file
   if (sourceFormat === 'epub') {
@@ -295,18 +374,47 @@ async function convertFromEbook(inputPath: string, outputPath: string, targetFor
 
     // Find HTML/XHTML files in the EPUB
     let text = ''
+    let htmlContent = ''
+    const { XMLParser } = require('fast-xml-parser')
+    const parser = new XMLParser({
+      ignoreAttributes: true,
+      textNodeName: '#text'
+    })
+
     for (const filename in zip.files) {
       if (filename.endsWith('.html') || filename.endsWith('.xhtml')) {
-        const content = await zip.files[filename].async('string')
-        const plainText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-        text += plainText + '\n\n'
+        try {
+          const content = await zip.files[filename].async('string')
+
+          // Try to parse HTML/XHTML to extract text properly
+          try {
+            const parsed = parser.parse(content)
+            const extractedText = extractTextFromObject(parsed)
+            text += extractedText.replace(/\s+/g, ' ').trim() + '\n\n'
+            htmlContent += `<div class="chapter">${content}</div>\n`
+          } catch (e) {
+            // Fallback: strip tags if parsing fails
+            const plainText = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+              .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+            text += plainText + '\n\n'
+          }
+        } catch (e) {
+          console.error(`Failed to process ${filename}:`, e)
+        }
       }
+    }
+
+    if (!text.trim()) {
+      text = 'No readable text content found in EPUB'
     }
 
     if (targetFormat === 'txt') {
       await fs.writeFile(outputPath, text, 'utf-8')
     } else if (targetFormat === 'html') {
-      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${text}</pre>\n</body>\n</html>`
+      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>EPUB Document</title>\n<style>body{font-family:Arial;margin:20px;line-height:1.6;}.chapter{margin-bottom:30px;padding:20px;border-bottom:2px solid #eee;}</style></head>\n<body>\n${htmlContent || `<pre>${escapeXml(text)}</pre>`}\n</body>\n</html>`
       await fs.writeFile(outputPath, html, 'utf-8')
     } else if (targetFormat === 'pdf') {
       await createPdfFromText(text, outputPath)
@@ -368,21 +476,39 @@ async function convertToEbook(inputPath: string, outputPath: string, sourceForma
   }
 }
 
-// Convert presentations and other spreadsheets
+// Convert presentations and spreadsheets - BETTER EXTRACTION
 async function convertPresentationOrSpreadsheet(inputPath: string, outputPath: string, sourceFormat: DocumentFormat, targetFormat: DocumentFormat): Promise<void> {
-  // These are complex formats - try to extract text
+  // Handle PPTX/ODP presentations
   if (['pptx', 'odp'].includes(sourceFormat)) {
     const JSZip = (await import('jszip')).default
     const buffer = await fs.readFile(inputPath)
     const zip = await JSZip.loadAsync(buffer)
 
     let text = ''
+    const { XMLParser } = require('fast-xml-parser')
+    const parser = new XMLParser({
+      ignoreAttributes: true,
+      textNodeName: '#text'
+    })
+
+    // Extract text from slides
     for (const filename in zip.files) {
-      if (filename.endsWith('.xml')) {
-        const content = await zip.files[filename].async('string')
-        const plainText = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-        text += plainText + '\n'
+      if (filename.includes('slide') && filename.endsWith('.xml')) {
+        try {
+          const content = await zip.files[filename].async('string')
+          const parsed = parser.parse(content)
+          const slideText = extractTextFromObject(parsed)
+          if (slideText.trim()) {
+            text += slideText.trim() + '\n\n---\n\n'
+          }
+        } catch (e) {
+          console.error(`Failed to parse ${filename}:`, e)
+        }
       }
+    }
+
+    if (!text.trim()) {
+      text = 'No readable text content found in presentation'
     }
 
     if (targetFormat === 'txt') {
@@ -390,57 +516,148 @@ async function convertPresentationOrSpreadsheet(inputPath: string, outputPath: s
     } else if (targetFormat === 'pdf') {
       await createPdfFromText(text, outputPath)
     } else if (targetFormat === 'html') {
-      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Presentation</title></head>\n<body>\n<pre>${text}</pre>\n</body>\n</html>`
+      const slides = text.split('---').filter(s => s.trim())
+      let html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Presentation</title>\n<style>body{font-family:Arial;margin:20px;}.slide{border:2px solid #ccc;padding:20px;margin:20px 0;background:#f9f9f9;}</style></head>\n<body>\n<h1>Presentation</h1>\n`
+      slides.forEach((slide, idx) => {
+        html += `<div class="slide"><h2>Slide ${idx + 1}</h2><pre>${escapeXml(slide.trim())}</pre></div>\n`
+      })
+      html += `</body>\n</html>`
       await fs.writeFile(outputPath, html, 'utf-8')
     } else {
       await fs.writeFile(outputPath, text, 'utf-8')
+    }
+  }
+  // Handle ODS spreadsheets - Use XLSX library!
+  else if (sourceFormat === 'ods') {
+    const XLSX = await import('xlsx')
+    const workbook = XLSX.readFile(inputPath)
+
+    if (targetFormat === 'xlsx' || targetFormat === 'xls') {
+      // Direct ODS to XLSX conversion!
+      XLSX.writeFile(workbook, outputPath)
+    } else {
+      // Convert through first sheet
+      const sheetName = workbook.SheetNames[0]
+      const sheet = workbook.Sheets[sheetName]
+
+      if (targetFormat === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(sheet)
+        await fs.writeFile(outputPath, csv, 'utf-8')
+      } else if (targetFormat === 'json') {
+        const json = XLSX.utils.sheet_to_json(sheet)
+        await fs.writeFile(outputPath, JSON.stringify(json, null, 2), 'utf-8')
+      } else if (targetFormat === 'html') {
+        const html = XLSX.utils.sheet_to_html(sheet)
+        await fs.writeFile(outputPath, html, 'utf-8')
+      } else if (targetFormat === 'txt') {
+        const csv = XLSX.utils.sheet_to_csv(sheet)
+        await fs.writeFile(outputPath, csv, 'utf-8')
+      } else if (targetFormat === 'pdf') {
+        const csv = XLSX.utils.sheet_to_csv(sheet)
+        await createPdfFromText(csv, outputPath)
+      } else {
+        const csv = XLSX.utils.sheet_to_csv(sheet)
+        await fs.writeFile(outputPath, csv, 'utf-8')
+      }
     }
   } else {
     throw new Error(`Conversion from ${sourceFormat} to ${targetFormat} requires LibreOffice. Please use LibreOffice to export to ${targetFormat}.`)
   }
 }
 
-// Simple text-based conversions (JSON, YAML, XML, CSV, HTML, TXT)
+// Helper: Extract text recursively from parsed XML object
+function extractTextFromObject(obj: any): string {
+  let text = ''
+  if (typeof obj === 'string') {
+    return obj + ' '
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    for (const key in obj) {
+      if (key === '#text') {
+        text += obj[key] + ' '
+      } else {
+        text += extractTextFromObject(obj[key])
+      }
+    }
+  }
+  return text
+}
+
+// Simple text-based conversions (JSON, YAML, XML, CSV, HTML, TXT) - NOW WITH REAL PARSING!
 async function convertSimpleFormats(inputPath: string, outputPath: string, sourceFormat: DocumentFormat, targetFormat: DocumentFormat): Promise<void> {
   const content = await fs.readFile(inputPath, 'utf-8')
 
   // JSON conversions
-  if (sourceFormat === 'json' && targetFormat === 'yaml') {
+  if (sourceFormat === 'json') {
     const jsonData = JSON.parse(content)
-    const yamlContent = convertJsonToYaml(jsonData)
-    await fs.writeFile(outputPath, yamlContent, 'utf-8')
-  } else if (sourceFormat === 'json' && targetFormat === 'xml') {
-    const jsonData = JSON.parse(content)
-    const xmlContent = convertJsonToXml(jsonData)
-    await fs.writeFile(outputPath, xmlContent, 'utf-8')
-  } else if (sourceFormat === 'json' && targetFormat === 'csv') {
-    const jsonData = JSON.parse(content)
-    const csvContent = convertJsonToCsv(jsonData)
-    await fs.writeFile(outputPath, csvContent, 'utf-8')
-  } else if (sourceFormat === 'json' && targetFormat === 'txt') {
-    await fs.writeFile(outputPath, JSON.stringify(JSON.parse(content), null, 2), 'utf-8')
+    if (targetFormat === 'yaml') {
+      const yamlContent = convertJsonToYaml(jsonData)
+      await fs.writeFile(outputPath, yamlContent, 'utf-8')
+    } else if (targetFormat === 'xml') {
+      const xmlContent = convertJsonToXml(jsonData)
+      await fs.writeFile(outputPath, xmlContent, 'utf-8')
+    } else if (targetFormat === 'csv') {
+      const csvContent = convertJsonToCsv(jsonData)
+      await fs.writeFile(outputPath, csvContent, 'utf-8')
+    } else if (targetFormat === 'txt') {
+      await fs.writeFile(outputPath, JSON.stringify(jsonData, null, 2), 'utf-8')
+    } else if (targetFormat === 'html') {
+      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>JSON Data</title></head>\n<body>\n<pre>${JSON.stringify(jsonData, null, 2)}</pre>\n</body>\n</html>`
+      await fs.writeFile(outputPath, html, 'utf-8')
+    }
   }
-  // YAML conversions
-  else if (sourceFormat === 'yaml' && targetFormat === 'json') {
+  // YAML conversions - REAL PARSING!
+  else if (sourceFormat === 'yaml') {
     const yamlData = parseYaml(content)
-    await fs.writeFile(outputPath, JSON.stringify(yamlData, null, 2), 'utf-8')
-  } else if (sourceFormat === 'yaml' && targetFormat === 'xml') {
-    const yamlData = parseYaml(content)
-    const xmlContent = convertJsonToXml(yamlData)
-    await fs.writeFile(outputPath, xmlContent, 'utf-8')
-  } else if (sourceFormat === 'yaml' && targetFormat === 'txt') {
-    await fs.writeFile(outputPath, content, 'utf-8')
+    if (targetFormat === 'json') {
+      await fs.writeFile(outputPath, JSON.stringify(yamlData, null, 2), 'utf-8')
+    } else if (targetFormat === 'xml') {
+      const xmlContent = convertJsonToXml(yamlData)
+      await fs.writeFile(outputPath, xmlContent, 'utf-8')
+    } else if (targetFormat === 'txt') {
+      await fs.writeFile(outputPath, JSON.stringify(yamlData, null, 2), 'utf-8')
+    } else if (targetFormat === 'html') {
+      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>YAML Data</title></head>\n<body>\n<pre>${JSON.stringify(yamlData, null, 2)}</pre>\n</body>\n</html>`
+      await fs.writeFile(outputPath, html, 'utf-8')
+    }
   }
-  // XML conversions
-  else if (sourceFormat === 'xml' && (targetFormat === 'json' || targetFormat === 'yaml' || targetFormat === 'txt')) {
-    await fs.writeFile(outputPath, content, 'utf-8')
+  // XML conversions - REAL PARSING!
+  else if (sourceFormat === 'xml') {
+    const xmlData = parseXml(content)
+    if (targetFormat === 'json') {
+      await fs.writeFile(outputPath, JSON.stringify(xmlData, null, 2), 'utf-8')
+    } else if (targetFormat === 'yaml') {
+      const yamlContent = convertJsonToYaml(xmlData)
+      await fs.writeFile(outputPath, yamlContent, 'utf-8')
+    } else if (targetFormat === 'txt') {
+      await fs.writeFile(outputPath, JSON.stringify(xmlData, null, 2), 'utf-8')
+    } else if (targetFormat === 'html') {
+      const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>XML Data</title></head>\n<body>\n<pre>${JSON.stringify(xmlData, null, 2)}</pre>\n</body>\n</html>`
+      await fs.writeFile(outputPath, html, 'utf-8')
+    } else if (targetFormat === 'csv') {
+      // Try to convert XML to CSV if structure is flat
+      const flatData = flattenXmlForCsv(xmlData)
+      const csvContent = convertJsonToCsv(flatData)
+      await fs.writeFile(outputPath, csvContent, 'utf-8')
+    }
   }
-  // CSV conversions
-  else if (sourceFormat === 'csv' && targetFormat === 'json') {
+  // CSV conversions - REAL PARSING!
+  else if (sourceFormat === 'csv') {
     const jsonData = convertCsvToJson(content)
-    await fs.writeFile(outputPath, JSON.stringify(jsonData, null, 2), 'utf-8')
-  } else if (sourceFormat === 'csv' && targetFormat === 'txt') {
-    await fs.writeFile(outputPath, content, 'utf-8')
+    if (targetFormat === 'json') {
+      await fs.writeFile(outputPath, JSON.stringify(jsonData, null, 2), 'utf-8')
+    } else if (targetFormat === 'yaml') {
+      const yamlContent = convertJsonToYaml(jsonData)
+      await fs.writeFile(outputPath, yamlContent, 'utf-8')
+    } else if (targetFormat === 'xml') {
+      const xmlContent = convertJsonToXml(jsonData, 'data')
+      await fs.writeFile(outputPath, xmlContent, 'utf-8')
+    } else if (targetFormat === 'txt') {
+      await fs.writeFile(outputPath, content, 'utf-8')
+    } else if (targetFormat === 'html') {
+      const html = generateHtmlTable(jsonData)
+      await fs.writeFile(outputPath, html, 'utf-8')
+    }
   }
   // HTML conversions
   else if (sourceFormat === 'html' && targetFormat === 'txt') {
@@ -449,11 +666,54 @@ async function convertSimpleFormats(inputPath: string, outputPath: string, sourc
   }
   // TXT conversions
   else if (sourceFormat === 'txt' && targetFormat === 'html') {
-    const htmlContent = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${content}</pre>\n</body>\n</html>`
+    const htmlContent = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Document</title></head>\n<body>\n<pre>${escapeXml(content)}</pre>\n</body>\n</html>`
     await fs.writeFile(outputPath, htmlContent, 'utf-8')
   } else {
     throw new Error(`Document conversion from ${sourceFormat} to ${targetFormat} is not supported`)
   }
+}
+
+// Helper: Flatten XML for CSV conversion
+function flattenXmlForCsv(xmlData: any): any[] {
+  // Try to find array-like structures
+  for (const key in xmlData) {
+    const value = xmlData[key]
+    if (Array.isArray(value)) {
+      return value
+    } else if (typeof value === 'object') {
+      const nested = flattenXmlForCsv(value)
+      if (nested.length > 0) return nested
+    }
+  }
+  // If no array found, wrap in array
+  return [xmlData]
+}
+
+// Helper: Generate HTML table from JSON array
+function generateHtmlTable(data: any[]): string {
+  if (!Array.isArray(data) || data.length === 0) {
+    return `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>Data</title></head>\n<body>\n<p>No data</p>\n</body>\n</html>`
+  }
+
+  const headers = Object.keys(data[0])
+  let html = `<!DOCTYPE html>\n<html>\n<head><meta charset="utf-8"><title>CSV Data</title>\n<style>table{border-collapse:collapse;width:100%;}th,td{border:1px solid #ddd;padding:8px;text-align:left;}th{background-color:#4CAF50;color:white;}</style></head>\n<body>\n<table>\n<thead><tr>`
+
+  headers.forEach(header => {
+    html += `<th>${escapeXml(String(header))}</th>`
+  })
+
+  html += `</tr></thead>\n<tbody>`
+
+  data.forEach(row => {
+    html += `<tr>`
+    headers.forEach(header => {
+      html += `<td>${escapeXml(String(row[header] || ''))}</td>`
+    })
+    html += `</tr>\n`
+  })
+
+  html += `</tbody>\n</table>\n</body>\n</html>`
+  return html
 }
 
 // Helper: Create PDF from text
@@ -590,97 +850,54 @@ async function createDocxFromText(text: string, outputPath: string): Promise<voi
   await fs.writeFile(outputPath, buffer)
 }
 
-// Helper functions for data format conversions
-function convertJsonToYaml(obj: any, indent = 0): string {
-  const spaces = '  '.repeat(indent)
-  let yaml = ''
-
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-      yaml += `${spaces}${key}:\n${convertJsonToYaml(value, indent + 1)}`
-    } else if (Array.isArray(value)) {
-      yaml += `${spaces}${key}:\n`
-      value.forEach(item => {
-        yaml += `${spaces}  - ${JSON.stringify(item)}\n`
-      })
-    } else {
-      yaml += `${spaces}${key}: ${value}\n`
-    }
-  }
-  return yaml
+// Helper functions for data format conversions with REAL libraries
+function convertJsonToYaml(obj: any): string {
+  const yaml = require('js-yaml')
+  return yaml.dump(obj, { indent: 2, lineWidth: -1 })
 }
 
 function convertJsonToXml(obj: any, rootName = 'root'): string {
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>\n<${rootName}>\n`
-
-  function buildXml(data: any, indent = 1): string {
-    const spaces = '  '.repeat(indent)
-    let result = ''
-
-    for (const [key, value] of Object.entries(data)) {
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        result += `${spaces}<${key}>\n${buildXml(value, indent + 1)}${spaces}</${key}>\n`
-      } else if (Array.isArray(value)) {
-        value.forEach(item => {
-          result += `${spaces}<${key}>${item}</${key}>\n`
-        })
-      } else {
-        result += `${spaces}<${key}>${value}</${key}>\n`
-      }
-    }
-    return result
-  }
-
-  xml += buildXml(obj)
-  xml += `</${rootName}>`
-  return xml
+  const { XMLBuilder } = require('fast-xml-parser')
+  const builder = new XMLBuilder({
+    ignoreAttributes: false,
+    format: true,
+    indentBy: '  '
+  })
+  const wrappedObj = { [rootName]: obj }
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + builder.build(wrappedObj)
 }
 
 function convertJsonToCsv(data: any): string {
+  const Papa = require('papaparse')
   if (Array.isArray(data) && data.length > 0) {
-    const headers = Object.keys(data[0])
-    let csv = headers.join(',') + '\n'
-    data.forEach(row => {
-      csv += headers.map(h => JSON.stringify(row[h] || '')).join(',') + '\n'
-    })
-    return csv
+    return Papa.unparse(data, { header: true })
   }
   return JSON.stringify(data)
 }
 
 function parseYaml(content: string): any {
-  const lines = content.split('\n')
-  const result: any = {}
-
-  lines.forEach(line => {
-    const match = line.match(/^(\s*)([^:]+):\s*(.*)$/)
-    if (match) {
-      const key = match[2].trim()
-      const value = match[3].trim()
-      result[key] = value
-    }
-  })
-
-  return result
+  const yaml = require('js-yaml')
+  return yaml.load(content)
 }
 
 function convertCsvToJson(content: string): any[] {
-  const lines = content.trim().split('\n')
-  if (lines.length < 2) return []
+  const Papa = require('papaparse')
+  const result = Papa.parse(content, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: true
+  })
+  return result.data
+}
 
-  const headers = lines[0].split(',').map(h => h.trim())
-  const result: any[] = []
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim())
-    const obj: any = {}
-    headers.forEach((header, index) => {
-      obj[header] = values[index] || ''
-    })
-    result.push(obj)
-  }
-
-  return result
+function parseXml(content: string): any {
+  const { XMLParser } = require('fast-xml-parser')
+  const parser = new XMLParser({
+    ignoreAttributes: false,
+    attributeNamePrefix: '@_',
+    textNodeName: '#text'
+  })
+  return parser.parse(content)
 }
 
 function escapeXml(text: string): string {
